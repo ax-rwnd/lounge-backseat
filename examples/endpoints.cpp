@@ -38,8 +38,8 @@ public:
 private:
 	void setupRoutes() {
 		using namespace Net::Rest;
-		Routes::Get(router, "/test", Routes::bind(&SampleEndpoint::function, this));
-		Routes::Get(router, "/nexttest", Routes::bind(&SampleEndpoint::second, this));
+		Routes::Get(router, "/api/test", Routes::bind(&SampleEndpoint::function, this));
+		Routes::Get(router, "/api/nexttest", Routes::bind(&SampleEndpoint::second, this));
 	}
 
 	void function(const Rest::Request& request, Net::Http::ResponseWriter response) {
