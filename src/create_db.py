@@ -21,25 +21,33 @@ def clean_db():
 	conn = get_connection()
 
 	with conn as cur:
-		cur.execute("DROP TABLE IF EXISTS profiles;")
 		cur.execute("DROP TABLE IF EXISTS music;")
+		cur.execute("DROP TABLE IF EXISTS profiles;")
 	conn.commit()
 
 def create_tests():
 	conn = get_connection()
 
 	with conn as cur:
-		cur.execute("INSERT INTO profiles VALUES (default, 'rwnd', 'test@test.xxx', TRUE);") 
+		cur.execute("INSERT INTO profiles VALUES (default, 'rwnd',\
+				'test@test.xxx', TRUE);") 
 	conn.commit()
 		
 
 def create_profiles(conn):
 	""" Create profile table"""
 
+	""" FIELDS
+		id		profile id
+		username	the shown username
+		email		contact infor for the profile
+		active		the activation status.
+		secret		bcrypt hash
+	"""
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS profiles (id INT NOT\
-			 NULL AUTO_INCREMENT, username VARCHAR(32),\
-			 email VARCHAR(255), active BOOLEAN, PRIMARY KEY(id));"
+			 NULL AUTO_INCREMENT, username VARCHAR(32) UNIQUE NOT NULL,\
+			 email VARCHAR(255) UNIQUE NOT NULL, active BOOLEAN, secret BINARY(60) NOT NULL, PRIMARY KEY(id));"
 		cur.execute(qry)
 	conn.commit()
 
@@ -54,6 +62,16 @@ def create_music(conn):
 		cur.execute(qry)
 	conn.commit()
 
+def create_lounges(conn):
+	""" Create user lounges consisting of
+		1 lounge -> 1 playlist
+		1 lounge -> many chat messages """
+
+	with conn as cur:
+		qry = "CREATE TABLE IF NOT EXISTS lounges\
+			 (playlists INT NOT NULL, chat INT,\
+			 PRIMARY KEY (lounges, chat));"
+		cur.execute(qry);
 
 if __name__ == "__main__":
 	if len(sys.argv)!=2:
