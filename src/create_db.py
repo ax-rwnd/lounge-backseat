@@ -54,9 +54,12 @@ def create_profiles(conn):
 		secret		bcrypt hash
 	"""
 	with conn as cur:
-		qry = "CREATE TABLE IF NOT EXISTS profiles (id INT NOT\
-			 NULL AUTO_INCREMENT, username VARCHAR(32) UNIQUE NOT NULL,\
-			 email VARCHAR(255) UNIQUE NOT NULL, active BOOLEAN, secret BINARY(60) NOT NULL, PRIMARY KEY(id));"
+		qry = "CREATE TABLE IF NOT EXISTS profiles\
+			(id INT NOT NULL AUTO_INCREMENT,\
+			username VARCHAR(32) UNIQUE NOT NULL,\
+			email VARCHAR(255) UNIQUE NOT NULL,\
+			active BOOLEAN, secret BINARY(60) NOT NULL,\
+			 PRIMARY KEY(id));"
 		cur.execute(qry)
 
 	conn.commit()
