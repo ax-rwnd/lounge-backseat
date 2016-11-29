@@ -39,7 +39,7 @@ def create_tests():
 
 	with conn as cur:
 		cur.execute("INSERT INTO profiles VALUES (default, 'rwnd',\
-				'test@test.xxx', TRUE);") 
+				'test@test.xxx', TRUE, 0);") 
 	conn.commit()
 		
 
@@ -118,7 +118,7 @@ def create_playlistlines (conn):
 	""" Creates linked-list structure for each playlist """
 
 	""" FIELDS
-		id		line id, uniqye
+		id		line id, unique
 		next_id		next track
 		playlist_id	belonging to playlist
 		music_id	target track
@@ -149,7 +149,9 @@ def create_chatlines(conn):
 			lounge_id INT NOT NULL,\
 			message VARCHAR(256),\
 			time DATETIME,\
-			PRIMARY KEY(user_id, lounge_id, time));"
+			PRIMARY KEY(user_id, lounge_id, time),\
+			FOREIGN KEY(user_id) REFERENCES profiles(id),\
+			FOREIGN KEY(lounge_id) REFERENCES lounges(id));"
 		cur.execute(qry)
 	conn.commit()
 
