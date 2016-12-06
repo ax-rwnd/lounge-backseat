@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, g, request
 from flask_restful import Resource, Api
+from bcrypt import hashpw, gensalt
 import MySQLdb as sql
 
 # Load hardcoded config
@@ -39,6 +40,7 @@ class Profile(Resource):
 
 class Registration(Resource):
 	def post (self):
+		""" Register a user, requires username, email and a password to be hashed. """
 		obj = request.get_json()
 
 		if (('username' not in obj) or ('email' not in obj) or ('secret' not in obj)):
@@ -54,6 +56,47 @@ class Registration(Resource):
 			except:
 				return {"status":"USER_EXISTS"}
 	
+class Login(Resource):
+	def post (self):
+		obj = request.get_json()
+		if ('username' not in obj) or ('secret' not in obj):
+			return {"status":"MISSING_PARAMS"}
+		else:
+			db = getattr(g,'db', None)
+			with db as cur:
+				qry = "SELECT hash WHERE username=%s;"
+				cur.execute(qry, (obj['username'],))
+
+				secret = cur.fetchone()
+				if False: #TODO continue
+					return {"status":"LOGIN_OK", "hash":""}
+				else:
+					return {"status":"LOGIN_FAILED"}
+
+
+class Playlist(Resource):
+	def get(self, user_id):
+		db = getattr(g, 'db', None)
+		
+		playlists = None
+		with db as cur:
+			qry = "SELECT id,title FROM playlists WHERE user_id = %s;"
+			cur.execute(qry, (user_id,))
+			playlists = cur.fetchall()
+
+		if playlists == None:
+			return {'status':'QUERY_FAILED'}
+		elif len(playlists) == 0:
+			return {'status':'NO_PLAYLISTS'}
+		else:
+			return {'status':'QUERY_OK', 'ids':playlists}
+
+
+class Activation(Resource):
+	def get(self, key):
+		return ""
+	pass
+
 class Lounge(Resource):
 	def get(self, username):
 		db = getattr(g, 'db', None)
@@ -69,9 +112,12 @@ class Lounge(Resource):
 			print "no such lounge!"	
 			return {"status":"FAIL"}
 
+
 api.add_resource(Profile, '/api/profile/<string:username>')
 api.add_resource(Registration, '/api/register')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
+api.add_resource(Activation, '/api/activate/<string:key>')
+api.add_resource(Playlist, '/api/playlist/<string:user_id>')
 
 if __name__ == '__main__':
 	app.run(debug=True)
