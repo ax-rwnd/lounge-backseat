@@ -12,7 +12,7 @@ api = Api(app)
 @app.before_request
 def before_request():
 	""" Open database and make cursors available to the requests. """
-	g.db = sql.connect(host=cfg.host, port=cfg.port, user=cfg.user,\
+	g.db = sql.connect(host=cfg.dbhost, port=cfg.dbport, user=cfg.user,\
 		passwd=cfg.password, db=cfg.database,\
 		charset=cfg.charset)
 
@@ -74,4 +74,4 @@ api.add_resource(Registration, '/api/register')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
 
 if __name__ == '__main__':
-	app.run(debug=True)
+	app.run(host=cfg.host, port=cfg.port, debug=True)
