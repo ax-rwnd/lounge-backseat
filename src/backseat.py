@@ -68,8 +68,8 @@ class Login(Resource):
 				cur.execute(qry, (obj['username'],))
 
 				secret = cur.fetchone()
-				if False: #TODO continue
-					return {"status":"LOGIN_OK", "hash":""}
+				if secret == hashpw(obj[secret], gensalt()):
+					return {"status":"LOGIN_OK", "hash":secret}
 				else:
 					return {"status":"LOGIN_FAILED"}
 
@@ -113,11 +113,12 @@ class Lounge(Resource):
 			return {"status":"FAIL"}
 
 
+api.add_resource(Activation, '/api/activate/<string:key>')
+api.add_resource(Login, '/api/login/')
+api.add_resource(Lounge, '/api/lounge/<string:username>')
+api.add_resource(Playlist, '/api/playlist/<string:user_id>')
 api.add_resource(Profile, '/api/profile/<string:username>')
 api.add_resource(Registration, '/api/register')
-api.add_resource(Lounge, '/api/lounge/<string:username>')
-api.add_resource(Activation, '/api/activate/<string:key>')
-api.add_resource(Playlist, '/api/playlist/<string:user_id>')
 
 if __name__ == '__main__':
 	app.run(host=cfg.host, port=cfg.port, debug=True)
