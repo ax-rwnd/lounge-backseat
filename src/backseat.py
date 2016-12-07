@@ -26,6 +26,23 @@ def teardown_request(exception):
 	else:
 		print "DB was null!"
 
+def authenticate (username, in_session):
+	db = getattr(g, 'db', None)
+
+	with db as cur:
+		qry = "SELECT session FROM profiles WHERE username=%s;"
+
+		lines = cur.execute(qry, (username,))
+		if lines == 0:
+			return {"status":"AUTH_FAIL"}
+
+		session = cur.fetchone()[0]
+		if session == in_session:
+			return {"status":"AUTH_OK"}
+		else:
+			return {"status":"AUTH_FAIL"}
+	return {"status":"AUTH_ERROR"}
+
 class Profile(Resource):
 	def get(self, username):
 		""" Retrieves profile for usernamse """
@@ -45,6 +62,8 @@ class Registration(Resource):
 
 		if (('username' not in obj) or ('email' not in obj) or ('secret' not in obj)):
 			return {"status":"MISSING_PARAMS"}
+		elif (len(obj['username'])<4 or len(obj['username'])>25):
+			return {"status":"USER_NAME_LENGTH"}
 
 		db = getattr(g, 'db', None)
 		with db as cur:
@@ -73,7 +92,11 @@ class Login(Resource):
 		db = getattr(g,'db', None)
 		with db as cur:
 			qry = "SELECT secret FROM profiles WHERE username=%s;"
-			cur.execute(qry, (obj['username'],))
+			lines = cur.execute(qry, (obj['username'],))
+
+			# No match!
+			if lines == 0:
+				return {"status":"LOGIN_FAILED"}
 
 			secret = cur.fetchone()[0]
 			if isinstance(secret, unicode):
@@ -88,8 +111,7 @@ class Login(Resource):
 				qry = "UPDATE profiles SET session=%s WHERE username=%s;"
 				newsession = hashpw(secret+cfg.secret, gensalt())
 				cur.execute(qry, (newsession,obj['username']))
-
-				return {"status":"LOGIN_OK", "hash":newsession}
+				return {"status":"LOGIN_OK", "session":newsession}
 			else:
 				return {"status":"LOGIN_FAILED"}
 
@@ -101,16 +123,7 @@ class Auth(Resource):
 		if ('username' not in obj) or ('session' not in obj):
 			return {"status":"MISSING_PARAMS"}
 		
-		db = getattr(g, 'db', None)
-		with db as cur:
-			qry = "SELECT session FROM profiles WHERE username=%s;"
-			cur.execute(qry, (obj['username'],))
-			session = cur.fetchone()[0]
-			if session == obj['session']:
-				return {"status":"AUTH_OK"}
-			else:
-				return {"status":"AUTH_FAIL"}
-		return {"status":"AUTH_ERROR"}
+		return authenticate(obj['username'], obj['session'])
 
 class Playlist(Resource):
 	def get(self, user_id):
@@ -128,6 +141,20 @@ class Playlist(Resource):
 			return {'status':'NO_PLAYLISTS'}
 		else:
 			return {'status':'QUERY_OK', 'ids':playlists}
+
+class Music(Resource):
+	def get(self, track_id):
+		""" Retrieves fully qualified address for requesting music. """
+		db = getattr(g, 'db', None)
+
+		with db as cur:
+			qry = "SELECT title,path FROM music WHERE id=%s;"
+			cur.execute(qry, (track_id,))
+			result = cur.fetchone()
+			if result != None:
+				return {'status':'TRACK_FOUND', 'title':result[0], 'path':result[1]}
+
+		return {'status':'TRACK_UNKNOWN'}
 
 
 class Activation(Resource):
@@ -155,6 +182,7 @@ api.add_resource(Activation, '/api/activate/<string:key>')
 api.add_resource(Auth, '/api/auth')
 api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
+api.add_resource(Music, '/api/music/<string:track_id>')
 api.add_resource(Playlist, '/api/playlist/<string:user_id>')
 api.add_resource(Profile, '/api/profile/<string:username>')
 api.add_resource(Registration, '/api/register')

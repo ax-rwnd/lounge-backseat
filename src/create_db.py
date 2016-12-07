@@ -75,8 +75,8 @@ def create_music(conn):
 		path	filesystem path
 	"""
 	with conn as cur:
-		qry = "CREATE TABLE IF NOT EXISTS music (id int,\
-			user_id INT, title VARCHAR(255), path varchar(1024),\
+		qry = "CREATE TABLE IF NOT EXISTS music (id int NOT NULL AUTO_INCREMENT,\
+			user_id INT NOT NULL, title VARCHAR(255), path varchar(1024),\
 			PRIMARY KEY(id), FOREIGN KEY (user_id)\
 			REFERENCES profiles(id));"
 		cur.execute(qry)
@@ -164,6 +164,9 @@ if __name__ == "__main__":
 			create_db()
 		elif sys.argv[1] == 'clean':
 			clean_db()
+		elif sys.argv[1] == 'recreate':
+			clean_db()
+			create_db()
 		elif sys.argv[1] == 'tests':
 			create_tests()
 		else:
