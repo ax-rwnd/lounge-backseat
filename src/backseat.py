@@ -51,14 +51,14 @@ class Registration(Resource):
 			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s, '');"
 			try:
 
-			secret = obj['secret']
-			if isinstance(secret, unicode):
-				secret = secret.encode('utf-8')
+				secret = obj['secret']
+				if isinstance(secret, unicode):
+					secret = secret.encode('utf-8')
 
-				hashed = hashpw(secret, gensalt())
-				cur.execute(qry, (obj['username'],obj['email'], hashed))
-				db.commit()
-				return {"status":"USER_CREATED"}
+					hashed = hashpw(secret, gensalt())
+					cur.execute(qry, (obj['username'],obj['email'], hashed))
+					db.commit()
+					return {"status":"USER_CREATED"}
 			except:
 				return {"status":"USER_EXISTS"}
 	
