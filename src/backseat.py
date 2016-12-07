@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, g, request
 from flask_restful import Resource, Api
-from bcrypt import hashpw, gensalt
+from bcrypt import hashpw, checkpw, gensalt
 import MySQLdb as sql
 
 # Load hardcoded config
@@ -48,9 +48,15 @@ class Registration(Resource):
 
 		db = getattr(g, 'db', None)
 		with db as cur:
-			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s);"
+			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s, '');"
 			try:
-				cur.execute(qry, (obj['username'],obj['email'],obj['secret']))
+
+			secret = obj['secret']
+			if isinstance(secret, unicode):
+				secret = secret.encode('utf-8')
+
+				hashed = hashpw(secret, gensalt())
+				cur.execute(qry, (obj['username'],obj['email'], hashed))
 				db.commit()
 				return {"status":"USER_CREATED"}
 			except:
@@ -64,12 +70,24 @@ class Login(Resource):
 		else:
 			db = getattr(g,'db', None)
 			with db as cur:
-				qry = "SELECT hash WHERE username=%s;"
+				qry = "SELECT secret FROM profiles WHERE username=%s;"
 				cur.execute(qry, (obj['username'],))
 
-				secret = cur.fetchone()
-				if secret == hashpw(obj[secret], gensalt()):
-					return {"status":"LOGIN_OK", "hash":secret}
+				secret = cur.fetchone()[0]
+				if isinstance(secret, unicode):
+					secret = secret.encode('utf-8')
+
+				encpw = obj['secret']
+				if isinstance(encpw, unicode):
+					encpw = encpw.encode('utf-8')
+				
+				# Login ok, set session
+				if checkpw(encpw, secret):
+					qry = "UPDATE profiles SET session=%s WHERE username=%s;"
+					newsession = hashpw(secret+cfg.secret, gensalt())
+					cur.execute(qry, (newsession,obj['username']))
+
+					return {"status":"LOGIN_OK", "hash":newsession}
 				else:
 					return {"status":"LOGIN_FAILED"}
 

@@ -6,7 +6,7 @@ cfg = Config()
 
 def get_connection():
 	""" Establish connection to database """
-	return sql.connect(host=cfg.host, port=cfg.port, user=cfg.user,\
+	return sql.connect(host=cfg.dbhost, port=cfg.dbport, user=cfg.user,\
 		passwd=cfg.password, db=cfg.database,\
 		charset=cfg.charset)
 
@@ -52,14 +52,15 @@ def create_profiles(conn):
 		email		contact infor for the profile
 		active		the activation status.
 		secret		bcrypt hash
+		session		session token
 	"""
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS profiles\
 			(id INT NOT NULL AUTO_INCREMENT,\
 			username VARCHAR(32) UNIQUE NOT NULL,\
 			email VARCHAR(255) UNIQUE NOT NULL,\
-			active BOOLEAN, secret BINARY(60) NOT NULL,\
-			 PRIMARY KEY(id));"
+			active BOOLEAN, secret VARCHAR(60) NOT NULL,\
+			session VARCHAR(60), PRIMARY KEY(id));"
 		cur.execute(qry)
 
 	conn.commit()
