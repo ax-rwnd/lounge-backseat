@@ -64,32 +64,34 @@ class Registration(Resource):
 	
 class Login(Resource):
 	def post (self):
+		""" Tests some plaintext password against the stored
+		database hash, if successful a new token is returned."""
 		obj = request.get_json()
 		if ('username' not in obj) or ('secret' not in obj):
 			return {"status":"MISSING_PARAMS"}
-		else:
-			db = getattr(g,'db', None)
-			with db as cur:
-				qry = "SELECT secret FROM profiles WHERE username=%s;"
-				cur.execute(qry, (obj['username'],))
+		
+		db = getattr(g,'db', None)
+		with db as cur:
+			qry = "SELECT secret FROM profiles WHERE username=%s;"
+			cur.execute(qry, (obj['username'],))
 
-				secret = cur.fetchone()[0]
-				if isinstance(secret, unicode):
-					secret = secret.encode('utf-8')
+			secret = cur.fetchone()[0]
+			if isinstance(secret, unicode):
+				secret = secret.encode('utf-8')
 
-				encpw = obj['secret']
-				if isinstance(encpw, unicode):
-					encpw = encpw.encode('utf-8')
-				
-				# Login ok, set session
-				if checkpw(encpw, secret):
-					qry = "UPDATE profiles SET session=%s WHERE username=%s;"
-					newsession = hashpw(secret+cfg.secret, gensalt())
-					cur.execute(qry, (newsession,obj['username']))
+			encpw = obj['secret']
+			if isinstance(encpw, unicode):
+				encpw = encpw.encode('utf-8')
+			
+			# Login ok, set session
+			if checkpw(encpw, secret):
+				qry = "UPDATE profiles SET session=%s WHERE username=%s;"
+				newsession = hashpw(secret+cfg.secret, gensalt())
+				cur.execute(qry, (newsession,obj['username']))
 
-					return {"status":"LOGIN_OK", "hash":newsession}
-				else:
-					return {"status":"LOGIN_FAILED"}
+				return {"status":"LOGIN_OK", "hash":newsession}
+			else:
+				return {"status":"LOGIN_FAILED"}
 
 
 class Playlist(Resource):
@@ -132,7 +134,7 @@ class Lounge(Resource):
 
 
 api.add_resource(Activation, '/api/activate/<string:key>')
-api.add_resource(Login, '/api/login/')
+api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
 api.add_resource(Playlist, '/api/playlist/<string:user_id>')
 api.add_resource(Profile, '/api/profile/<string:username>')
