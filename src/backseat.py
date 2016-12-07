@@ -93,6 +93,24 @@ class Login(Resource):
 			else:
 				return {"status":"LOGIN_FAILED"}
 
+class Auth(Resource):
+	def post(self):
+		""" Test if the user is logged in. """
+		obj = request.get_json()
+
+		if ('username' not in obj) or ('session' not in obj):
+			return {"status":"MISSING_PARAMS"}
+		
+		db = getattr(g, 'db', None)
+		with db as cur:
+			qry = "SELECT session FROM profiles WHERE username=%s;"
+			cur.execute(qry, (obj['username'],))
+			session = cur.fetchone()[0]
+			if session == obj['session']:
+				return {"status":"AUTH_OK"}
+			else:
+				return {"status":"AUTH_FAIL"}
+		return {"status":"AUTH_ERROR"}
 
 class Playlist(Resource):
 	def get(self, user_id):
@@ -134,6 +152,7 @@ class Lounge(Resource):
 
 
 api.add_resource(Activation, '/api/activate/<string:key>')
+api.add_resource(Auth, '/api/auth')
 api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
 api.add_resource(Playlist, '/api/playlist/<string:user_id>')
