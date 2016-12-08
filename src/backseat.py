@@ -176,6 +176,17 @@ class Lounge(Resource):
 		else:
 			print "no such lounge!"	
 			return {"status":"FAIL"}
+class Chat(Resource):
+	def post(self):
+		""" Retrieve chat messages for this room. """
+		db = getattr(g, 'db', None)
+		obj = request.get_json()
+
+		if 'lounge_id' in obj and isinstance(obj['lounge_id'], str):
+			with db as cur:
+				qry = "SELECT chatlines.time, profile.username, chatlines.message FROM chatlines\
+				INNER JOIN profiles ON chatlines.lounge_id = %s AND profile.id = chatlines.user_id;"
+				cur.execute(qry, (obj['lounge_id'],))
 
 
 api.add_resource(Activation, '/api/activate/<string:key>')
@@ -188,4 +199,4 @@ api.add_resource(Profile, '/api/profile/<string:username>')
 api.add_resource(Registration, '/api/register')
 
 if __name__ == '__main__':
-	app.run(host=cfg.host, port=cfg.port, debug=True)
+	app.run(host=cfg.host, port=cfg.port, debug=True, ssl_context=cfg.ssl_context)
