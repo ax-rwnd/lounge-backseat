@@ -26,6 +26,6 @@ class Config:
 		self.dbhost = "127.0.0.1"
 		self.dbport = 3306
 
-		self.secret = urangeom(24)
+		self.secret = urandom(24)
 		self.database = 'loungedb'
 		self.charset = 'utf8'
