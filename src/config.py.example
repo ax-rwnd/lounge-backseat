@@ -7,25 +7,25 @@ class Config:
 
 	host = None		#backend host address
 	port = None		#host port
+	ssl_context = None
+	secret = None		#secret key
 
 	user = None		#mysql user
 	password = None		#mysql password
 	dbhost = None		#database address
 	dbport = None		#database port
-
-	secret = None		#secret key
 	database = None		#service database
 	charset = None		#charset, recommended utf8
 
 	def __init__(self):
 		self.host = "0.0.0.0"
 		self.port = 5000
+		self.ssl_context = ('cert.pem', 'priv.key')
+		self.secret = urandom(24)
 
 		self.user = 'dbbuser'
 		self.password = 'dbpassword'
 		self.dbhost = "127.0.0.1"
 		self.dbport = 3306
-
-		self.secret = urandom(24)
 		self.database = 'loungedb'
 		self.charset = 'utf8'
