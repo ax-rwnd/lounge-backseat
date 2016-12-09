@@ -109,7 +109,7 @@ class Login(Resource):
 			# Login ok, set session
 			if checkpw(encpw, secret):
 				qry = "UPDATE profiles SET session=%s WHERE username=%s;"
-				newsession = hashpw(secret+cfg.secret, gensalt())
+				newsession = hashpw(secret, gensalt())
 				cur.execute(qry, (newsession,obj['username']))
 				return {"status":"LOGIN_OK", "session":newsession}
 			else:
@@ -199,4 +199,4 @@ api.add_resource(Profile, '/api/profile/<string:username>')
 api.add_resource(Registration, '/api/register')
 
 if __name__ == '__main__':
-	app.run(host=cfg.host, port=cfg.port, debug=True, ssl_context=cfg.ssl_context)
+	app.run(host=cfg.host, port=cfg.port, debug=True)
