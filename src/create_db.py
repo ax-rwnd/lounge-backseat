@@ -65,6 +65,7 @@ def create_profiles(conn):
 		active		the activation status.
 		secret		bcrypt hash
 		session		session token
+		steam_id	steam_id number
 	"""
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS profiles\
@@ -72,7 +73,8 @@ def create_profiles(conn):
 			username VARCHAR(32) UNIQUE NOT NULL,\
 			email VARCHAR(255) UNIQUE NOT NULL,\
 			active BOOLEAN, secret VARCHAR(60) NOT NULL,\
-			session VARCHAR(60), PRIMARY KEY(id));"
+			steam_id VARCHAR(24), session VARCHAR(60),\
+			PRIMARY KEY(id));"
 		cur.execute(qry)
 
 	conn.commit()
@@ -120,7 +122,7 @@ def create_playlists(conn):
 	"""
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS playlists\
-			(id INT NOT NULL, title VARCHAR(255),\
+			(id INT NOT NULL AUTO_INCREMENT, title VARCHAR(255),\
 			user_id INT NOT NULL, PRIMARY KEY(id),\
 			FOREIGN KEY(user_id) REFERENCES profiles(id));"
 		cur.execute(qry)
