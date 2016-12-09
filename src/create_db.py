@@ -13,6 +13,7 @@ def get_connection():
 def create_db ():
 	""" Initialize database """
 	conn = get_connection()
+	create_api_keys()
 	create_profiles(conn)
 	create_music(conn)
 	create_lounges(conn)
@@ -20,11 +21,23 @@ def create_db ():
 	create_playlistlines(conn)
 	create_chatlines(conn)
 
+def create_api_keys ():
+	""" Create table for registered API keys. """
+	conn = get_connection()
+
+	""" FIELDS
+		key -- the 32-char string used to identify the service
+	"""
+	with conn as cur:
+		cur.execute("CREATE TABLE IF NOT EXISTS api_keys (apikey VARCHAR(32) NOT NULL, PRIMARY KEY(apikey));")
+	conn.commit()
+
 def clean_db():
 	""" Remove tables from database """
 	conn = get_connection()
 
 	with conn as cur:
+		cur.execute("DROP TABLE IF EXISTS api_keys;")
 		cur.execute("DROP TABLE IF EXISTS chatlines;")
 		cur.execute("DROP TABLE IF EXISTS playlistlines;")
 		cur.execute("DROP TABLE IF EXISTS playlists;")
@@ -38,8 +51,7 @@ def create_tests():
 	conn = get_connection()
 
 	with conn as cur:
-		cur.execute("INSERT INTO profiles VALUES (default, 'rwnd',\
-				'test@test.xxx', TRUE, 0);") 
+		cur.execute('INSERT INTO api_keys VALUES ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");')
 	conn.commit()
 		
 
