@@ -125,6 +125,17 @@ class Auth(Resource):
 		
 		return authenticate(obj['username'], obj['session'])
 
+class Test(Resource):
+	def post(self,user_id):
+		obj= request.get_json()
+		db=getattr(g,'db', None)
+		with db as cur:
+			qry="INSERT INTO playlists VALUES(default, 'qwe',(select id from profiles where id=%s));"
+			cur.execute(qry,(user_id,))
+			db.commit()
+			return{"status":"PLAYLIST_ADDED"}
+		
+
 class Playlist(Resource):
 	def get(self, user_id):
 		db = getattr(g, 'db', None)
@@ -139,8 +150,8 @@ class Playlist(Resource):
 			return {'status':'QUERY_FAILED'}
 		elif len(playlists) == 0:
 			return {'status':'NO_PLAYLISTS'}
-		else:
-			return {'status':'QUERY_OK', 'ids':playlists}
+
+		return {'status':'QUERY_OK', 'ids':playlists}
 
 class Music(Resource):
 	def get(self, track_id):
@@ -193,6 +204,7 @@ api.add_resource(Activation, '/api/activate/<string:key>')
 api.add_resource(Auth, '/api/auth')
 api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
+api.add_resource(Test, '/api/test/<string:user_id>')
 api.add_resource(Music, '/api/music/<string:track_id>')
 api.add_resource(Playlist, '/api/playlist/<string:user_id>')
 api.add_resource(Profile, '/api/profile/<string:username>')
