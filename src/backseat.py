@@ -172,7 +172,10 @@ class Login(Resource):
 				newsession = hashpw(steam_id, gensalt())
 				lines = cur.execute(qry, (newsession, steam_id))
 				if lines >= 1:
-					return {"status":"LOGIN_OK", "session":newsession}
+					qry = "SELECT username FROM profiles WHERE steam_id=%s;"
+					cur.execute(qry, (steam_id,))
+					username = cur.fetchone()[0]
+					return {"status":"LOGIN_OK", "session":newsession, "username":username}
 
 			return {"status":"LOGIN_FAILED"}
 
@@ -197,7 +200,7 @@ class Login(Resource):
 						qry = "UPDATE profiles SET session=%s WHERE username=%s;"
 						newsession = hashpw(secret, gensalt())
 						cur.execute(qry, (newsession,obj['username']))
-						return {"status":"LOGIN_OK", "session":newsession}
+						return {"status":"LOGIN_OK", "session":newsession, "username":obj['username']}
 		else:
 			return {"status":"MISSING_PARAMS"}
 		return {"status":"LOGIN_FAILED"}
