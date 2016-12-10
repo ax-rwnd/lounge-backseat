@@ -29,7 +29,6 @@ def teardown_request(exception):
 def authenticate (username, in_session):
 	""" Tests uf a user session is authenticated. """
 	db = getattr(g, 'db', None)
-	print username, in_session
 
 	with db as cur:
 		qry = "SELECT session FROM profiles WHERE username=%s;"
