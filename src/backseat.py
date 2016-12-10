@@ -27,7 +27,9 @@ def teardown_request(exception):
 		print "DB was null!"
 
 def authenticate (username, in_session):
+	""" Tests uf a user session is authenticated. """
 	db = getattr(g, 'db', None)
+	print username, in_session
 
 	with db as cur:
 		qry = "SELECT session FROM profiles WHERE username=%s;"
@@ -43,17 +45,82 @@ def authenticate (username, in_session):
 			return {"status":"AUTH_FAIL"}
 	return {"status":"AUTH_ERROR"}
 
+def test_api_key (key):
+	""" Test if a given key is in the api-key list. """
+	db = getattr(g,'db', None)
+
+	if isinstance(key, unicode):
+		key = key.encode('utf-8')
+
+	qry = "SELECT apikey FROM api_keys WHERE apikey=%s;"
+	with db as cur:
+		return 0 < cur.execute(qry, (key,))
+
 class Profile(Resource):
 	def get(self, username):
-		""" Retrieves profile for usernamse """
+		""" Retrieves profile for username """
 		db = getattr(g, 'db', None)
 
-		qry = "SELECT username,email,active FROM\
+		qry = "SELECT username,email,active,steamid FROM\
 			profiles WHERE username = %s;"
 		with db as cursor:
 			cursor.execute(qry, (username,))
 
 		return {'profile':cursor.fetchone()}
+
+	def post(self, username=''):
+		""" Update profile information. """
+		obj = request.get_json()
+		db = getattr(g, 'db', None)
+
+		# make sure session was set
+		if ('session' not in obj):
+			return {'status':'AUTH_FAIL'}
+
+		# make sure the username and password was supplied
+		elif ('username' not in obj) or ('secret' not in obj):
+			return {'status':'MISSING_PARAMS'}
+
+		# sanitize login
+		username = obj['username']
+		if isinstance(username, unicode):
+			username = username.encode('utf-8')
+
+		secret = obj['secret']
+		if isinstance(secret, unicode):
+			secret = secret.encode('utf-8')
+		
+		
+		# make sure the user is properly authenticated
+		if authenticate(username, obj['session'])['status'] == 'AUTH_FAIL':
+			return {'status':'AUTH_FAIL'}
+		else:
+			#update password
+			if ('newsecret' in obj):
+				qry = "UPDATE profiles SET secret=%s WHERE username=%s;"
+
+				newsecret = obj['newsecret']
+				if isinstance(newsecret, unicode):
+					newsecret = newsecret.encode('utf-8')
+
+				hashed = hashpw(newsecret, gensalt())
+				with db as cur:
+					cur.execute(qry, (hashed, username))
+					db.commit()
+
+			# update steamid
+			if ('steamid' in obj):
+				steamid = obj['steamid']
+				if isinstance(steamid, unicode):
+					steamid = steamid.encode('utf-8')
+				
+				qry = "UPDATE profiles SET steam_id=%s WHERE username=%s;"
+				with db as cur:
+					cur.execute(qry, (steamid, username))
+					db.commit()
+
+			return {"status":"USER_UPDATED"}
+
 
 class Registration(Resource):
 	def post (self):
@@ -67,53 +134,76 @@ class Registration(Resource):
 
 		db = getattr(g, 'db', None)
 		with db as cur:
-			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s, '');"
+			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s, '', '');"
 			try:
 
 				secret = obj['secret']
 				if isinstance(secret, unicode):
 					secret = secret.encode('utf-8')
 
-					hashed = hashpw(secret, gensalt())
-					cur.execute(qry, (obj['username'],obj['email'], hashed))
-					db.commit()
-					return {"status":"USER_CREATED"}
+				hashed = hashpw(secret, gensalt())
+				cur.execute(qry, (obj['username'],obj['email'], hashed))
+				db.commit()
+				return {"status":"USER_CREATED"}
 			except:
 				return {"status":"USER_EXISTS"}
 	
+
+
 class Login(Resource):
 	def post (self):
 		""" Tests some plaintext password against the stored
 		database hash, if successful a new token is returned."""
 		obj = request.get_json()
-		if ('username' not in obj) or ('secret' not in obj):
-			return {"status":"MISSING_PARAMS"}
-		
-		db = getattr(g,'db', None)
-		with db as cur:
-			qry = "SELECT secret FROM profiles WHERE username=%s;"
-			lines = cur.execute(qry, (obj['username'],))
 
-			# No match!
-			if lines == 0:
-				return {"status":"LOGIN_FAILED"}
-
-			secret = cur.fetchone()[0]
-			if isinstance(secret, unicode):
-				secret = secret.encode('utf-8')
-
-			encpw = obj['secret']
-			if isinstance(encpw, unicode):
-				encpw = encpw.encode('utf-8')
+		# steam login
+		if ('api_key' in obj) and ('steam_id' in obj):
+			db = getattr(g,'db', None)
 			
-			# Login ok, set session
-			if checkpw(encpw, secret):
-				qry = "UPDATE profiles SET session=%s WHERE username=%s;"
-				newsession = hashpw(secret, gensalt())
-				cur.execute(qry, (newsession,obj['username']))
-				return {"status":"LOGIN_OK", "session":newsession}
-			else:
-				return {"status":"LOGIN_FAILED"}
+			if not test_api_key(obj['api_key']):
+				return {"status":"INVALID_API_KEY"+obj['api_key']}
+
+			steam_id = obj['steam_id']
+			if isinstance(steam_id, unicode):
+				steam_id = steam_id.encode('utf-8')
+
+			with db as cur:
+				qry = "UPDATE profiles SET session=%s WHERE steam_id=%s;"
+				newsession = hashpw(steam_id, gensalt())
+				lines = cur.execute(qry, (newsession, steam_id))
+				if lines >= 1:
+					qry = "SELECT username FROM profiles WHERE steam_id=%s;"
+					cur.execute(qry, (steam_id,))
+					username = cur.fetchone()[0]
+					return {"status":"LOGIN_OK", "session":newsession, "username":username}
+
+			return {"status":"LOGIN_FAILED"}
+
+		elif ('username' in obj) and ('secret' in obj):
+			db = getattr(g,'db', None)
+
+			with db as cur:
+				qry = "SELECT secret FROM profiles WHERE username=%s;"
+				lines = cur.execute(qry, (obj['username'],))
+
+				if lines >= 1:
+					secret = cur.fetchone()[0]
+					if isinstance(secret, unicode):
+						secret = secret.encode('utf-8')
+
+					encpw = obj['secret']
+					if isinstance(encpw, unicode):
+						encpw = encpw.encode('utf-8')
+					
+					# Login ok, set session
+					if checkpw(encpw, secret):
+						qry = "UPDATE profiles SET session=%s WHERE username=%s;"
+						newsession = hashpw(secret, gensalt())
+						cur.execute(qry, (newsession,obj['username']))
+						return {"status":"LOGIN_OK", "session":newsession, "username":obj['username']}
+		else:
+			return {"status":"MISSING_PARAMS"}
+		return {"status":"LOGIN_FAILED"}
 
 class Auth(Resource):
 	def post(self):
@@ -182,10 +272,8 @@ class Lounge(Resource):
 			cur.execute(qry, (username,))
 			result = cur.fetchall()
 		if len(result)>0:
-			print "results!"	
 			return {"status":"OK"}
 		else:
-			print "no such lounge!"	
 			return {"status":"FAIL"}
 class Chat(Resource):
 	def post(self):
