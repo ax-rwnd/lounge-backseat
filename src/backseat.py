@@ -257,6 +257,49 @@ class Music(Resource):
 
 		return {'status':'TRACK_UNKNOWN'}
 
+	def post(self):
+		""" Adds, deletes or requests music. """
+		db = getattr(g, 'db', None)
+		obj = request.get_json()
+
+		if ('username' not in obj) or ('session' not in obj) or\
+			('targetlist' not in obj) or ('targetname' not in obj) or\
+			('action' not in obj):
+			return {'status':'MISSING_PARAMS'}
+		elif not authenticate(obj['username'], obj['session']):
+			return {'status':'AUTH_FAIL'}
+		else:
+			username = obj['username']
+			session = obj['session']
+			targetname = obj['targetname']
+			targetlist = obj['targetlist']
+			action = obj['action']
+			#title = obj['title']
+			#path = obj['path']
+
+			if action == 'ADD':
+				pass
+				#qry = "INSERT INTO music IF NOT EXISTS VALUES (default, (SELECT id FROM profiles WHERE username=%s), %s, %s);"
+				#with db as cur:
+				#	lines = cur.execute(qry, (username, title, path))
+				#	if lines == 0:
+				#		return {'status':'ADD_FAILED'}
+				#	else:
+				#		return {'status':'ADD_SUCCESS'}
+			elif action == 'DELETE':
+				pass
+			elif action == 'GET':
+				qry = "SELECT id,title,path FROM music ORDER BY FIELD(id) WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and playlist_id = (SELECT id FROM playlists where id=%s);"
+				with db as cur:
+					cur.execute(qry, (targetname, targetlist))
+					return {'status':'MUSIC_LIST', 'tracks':cur.fetchall()}
+				return {'status':'INTERNAL_ERROR'}
+				#user_id = (SELECT id FROM profiles WHERE username=%s;"
+			else:
+				return {'status':'INVALID_ACTION'}
+
+
+
 
 class Activation(Resource):
 	def get(self, key):

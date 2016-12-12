@@ -15,10 +15,10 @@ def create_db ():
 	conn = get_connection()
 	create_api_keys()
 	create_profiles(conn)
-	create_music(conn)
 	create_lounges(conn)
 	create_playlists(conn)
-	create_playlistlines(conn)
+	create_music(conn)
+	#create_playlistlines(conn)
 	create_chatlines(conn)
 
 def create_api_keys ():
@@ -83,16 +83,17 @@ def create_music(conn):
 	""" Create music->file mapping table """
 	
 	""" FIELDS
-		id	track id
-		user_id	owner user id
-		title	track title
-		path	filesystem path
+		id		track id
+		user_id		owner user id
+		title		track title
+		path		filesystem path
+		playlist_id	id of the playlist
 	"""
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS music (id int NOT NULL AUTO_INCREMENT,\
 			user_id INT NOT NULL, title VARCHAR(255), path varchar(1024),\
-			PRIMARY KEY(id), FOREIGN KEY (user_id)\
-			REFERENCES profiles(id));"
+			playlist_id INT NOT NULL, PRIMARY KEY(id), FOREIGN KEY (user_id)\
+			REFERENCES profiles(id), FOREIGN KEY(playlist_id) REFERENCES playlists(id));"
 		cur.execute(qry)
 	conn.commit()
 
