@@ -9,7 +9,6 @@ cfg = Config()
 
 app = Flask(__name__)
 api = Api(app)
-
 @app.before_request
 def before_request():
 	""" Open database and make cursors available to the requests. """
@@ -154,7 +153,7 @@ class Login(Resource):
 		""" Tests some plaintext password against the stored
 		database hash, if successful a new token is returned."""
 		obj = request.get_json()
-
+		print'object: ', obj
 		# steam login
 		if ('api_key' in obj) and ('steam_id' in obj):
 			db = getattr(g,'db', None)
@@ -213,20 +212,116 @@ class Auth(Resource):
 			return {"status":"MISSING_PARAMS"}
 		
 		return authenticate(obj['username'], obj['session'])
+@app.after_request
+def after_request(response):
+	response.headers.add('Access-Control-Allow-Origin', '*')
+	response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+	response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+	return response
 
 class Test(Resource):
-	def post(self,user_id):
-		obj= request.get_json()
-		print "obj:",obj
-		db=getattr(g,'db', None)
-		with db as cur:
-			qry="INSERT INTO playlists VALUES(default, 'qwe',(select id from profiles where id=%s));"
-			cur.execute(qry,(user_id,))
-			db.commit()
-			return{"status":"PLAYLIST_ADDED"}
+	def post(self):
+		obj = request.get_json()
+		print obj
+		db = getattr(g,'db', None)
+
+		if ('title' not in obj) or ('session' not in obj) or ('username' not in obj) or ('action' not in obj):
+			return {"status":"MISSING_PARAMS"}
+		elif not authenticate(obj['username'],obj['session']):
+			return {"status":"AUTH_FAIL"}
+		else:
+			username = obj['username']
+			title = obj['title']
+			action=obj['action']
+			
+			if(action == 'ADD'):
+				try:
+					with db as cur:
+						qry="INSERT INTO playlists VALUES(default,\
+							%s,(select id from profiles where username=%s));"
+						cur.execute(qry,(title, username))
+						db.commit()
+						return{"status":"PLAYLIST_ADDED"}
+				except:
+					return {"status":"ADDITION_FAILED"}
+			elif(action=='DELETE'):
+				try:
+					with db as cur:
+						qry="DELETE FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and title=%s;"
+						lines = cur.execute(qry,(username,title))
+						if lines == 0:
+							return {"status":"NO_SUCH_PLAYLIST"}
+
+						db.commit()
+					return {"status":"DELETION_SUCCESS"}
+				except sql.Error as e:
+					print e
+					return {"status":"DELETION_FAILED"}
+					
+					
+			return {"status":"UNSUPPORTED_ACTION"}
 		
 
 class Playlist(Resource):
+	def post(self):
+		obj = request.get_json()
+		db = getattr(g,'db', None)
+
+		if ('title' not in obj) or ('session' not in obj) or ('username' not in obj) or ('action' not in obj):
+			return {"status":"MISSING_PARAMS"}
+		elif not authenticate(obj['username'],obj['session']):
+			return {"status":"AUTH_FAIL"}
+		else:
+			username = obj['username']
+			title = obj['title']
+			action=obj['action']
+			
+			if(action == 'ADD'):
+				try:
+					with db as cur:
+						qry="INSERT INTO playlists VALUES(default,\
+							%s,(select id from profiles where username=%s));"
+						cur.execute(qry,(title, username))
+						db.commit()
+						return{"status":"PLAYLIST_ADDED"}
+				except:
+					return {"status":"ADDITION_FAILED"}
+			elif(action=='DELETE'):
+				try:
+					with db as cur:
+						qry="DELETE FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and title=%s;"
+						lines = cur.execute(qry,(username,title))
+						if lines == 0:
+							return {"status":"NO_SUCH_PLAYLIST"}
+
+						db.commit()
+					return {"status":"DELETION_SUCCESS"}
+				except sql.Error as e:
+					print e
+					return {"status":"DELETION_FAILED"}
+			
+			elif (action == 'GET'):
+				playlists = None
+				try:
+					with db as cur:
+						qry = "SELECT id, title FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s);"
+						cur.execute(qry, (username,))
+						playlists = cur.fetchall()
+
+						if playlists == None:
+							return {'status':'QUERY_FAILED'}
+						elif len(playlists) == 0:
+							return {'status':'NO_PLAYLISTS'}
+						return {'status':'QUERY_OK', 'ids':playlists}
+
+				
+				except sql.Error as e:
+					return {"status":"GET_FAILED"}
+								
+			return {"status":"UNSUPPORTED_ACTION"}
+		
+
+
 	def get(self, user_id):
 		db = getattr(g, 'db', None)
 		
@@ -292,9 +387,9 @@ api.add_resource(Activation, '/api/activate/<string:key>')
 api.add_resource(Auth, '/api/auth')
 api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
-api.add_resource(Test, '/api/test/<string:user_id>')
+api.add_resource(Test, '/api/test')
 api.add_resource(Music, '/api/music/<string:track_id>')
-api.add_resource(Playlist, '/api/playlist/<string:user_id>')
+api.add_resource(Playlist, '/api/playlist')
 api.add_resource(Profile, '/api/profile/<string:username>')
 api.add_resource(Registration, '/api/register')
 
