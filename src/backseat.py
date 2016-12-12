@@ -153,7 +153,7 @@ class Login(Resource):
 		""" Tests some plaintext password against the stored
 		database hash, if successful a new token is returned."""
 		obj = request.get_json()
-		print'object: ', obj
+
 		# steam login
 		if ('api_key' in obj) and ('steam_id' in obj):
 			db = getattr(g,'db', None)
@@ -222,7 +222,6 @@ def after_request(response):
 class Test(Resource):
 	def post(self):
 		obj = request.get_json()
-		print obj
 		db = getattr(g,'db', None)
 
 		if ('title' not in obj) or ('session' not in obj) or ('username' not in obj) or ('action' not in obj):
@@ -352,41 +351,43 @@ class Music(Resource):
 
 		return {'status':'TRACK_UNKNOWN'}
 
-	def post(self):
+	def post(self,  track_id=0):
 		""" Adds, deletes or requests music. """
 		db = getattr(g, 'db', None)
 		obj = request.get_json()
 
 		if ('username' not in obj) or ('session' not in obj) or\
-			('targetlist' not in obj) or ('targetname' not in obj) or\
-			('action' not in obj):
+			('playlist_id' not in obj) or ('action' not in obj):
 			return {'status':'MISSING_PARAMS'}
 		elif not authenticate(obj['username'], obj['session']):
 			return {'status':'AUTH_FAIL'}
 		else:
 			username = obj['username']
 			session = obj['session']
-			targetname = obj['targetname']
-			targetlist = obj['targetlist']
+			playlist_id = obj['playlist_id']
 			action = obj['action']
-			#title = obj['title']
-			#path = obj['path']
 
 			if action == 'ADD':
-				pass
-				#qry = "INSERT INTO music IF NOT EXISTS VALUES (default, (SELECT id FROM profiles WHERE username=%s), %s, %s);"
-				#with db as cur:
-				#	lines = cur.execute(qry, (username, title, path))
-				#	if lines == 0:
-				#		return {'status':'ADD_FAILED'}
-				#	else:
-				#		return {'status':'ADD_SUCCESS'}
+				if ('title' not in obj) or ('path' not in obj):
+					return {'status':'MISSING_PARAMS'}
+
+				title = obj['title']
+				path = obj['path']
+				playlist_id = obj['playlist_id']
+
+				qry = "INSERT INTO music VALUES (default, (SELECT id FROM profiles WHERE username=%s), %s, %s, (SELECT id FROM playlists WHERE id=%s));"
+				with db as cur:
+					lines = cur.execute(qry, (username, title, path, playlist_id))
+					if lines == 0:
+						return {'status':'ADD_FAILED'}
+					else:
+						return {'status':'ADD_SUCCESS'}
 			elif action == 'DELETE':
 				pass
 			elif action == 'GET':
-				qry = "SELECT id,title,path FROM music ORDER BY FIELD(id) WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and playlist_id = (SELECT id FROM playlists where id=%s);"
+				qry = "SELECT id,title,path FROM music WHERE playlist_id = (SELECT id FROM playlists where id=%s) ORDER BY(id) ASC;"
 				with db as cur:
-					cur.execute(qry, (targetname, targetlist))
+					cur.execute(qry, (playlist_id,))
 					return {'status':'MUSIC_LIST', 'tracks':cur.fetchall()}
 				return {'status':'INTERNAL_ERROR'}
 				#user_id = (SELECT id FROM profiles WHERE username=%s;"
