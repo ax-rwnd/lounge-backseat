@@ -322,18 +322,19 @@ class Music(Resource):
 		print "qwe",obj
 
 		if ('username' not in obj) or ('session' not in obj) or\
-			('playlist_id' not in obj) or ('action' not in obj):
+			('action' not in obj):
 			return {'status':'MISSING_PARAMS'}
 		elif not authenticate(obj['username'], obj['session']):
 			return {'status':'AUTH_FAIL'}
 		else:
 			username = obj['username']
 			session = obj['session']
-			playlist_id = obj['playlist_id']
 			action = obj['action']
 
+			print "action",action
+
 			if action == 'ADD':
-				if ('title' not in obj) or ('path' not in obj):
+				if ('title' not in obj) or ('playlist_id' not in obj) or ('path' not in obj):
 					return {'status':'MISSING_PARAMS'}
 
 				title = obj['title']
@@ -348,14 +349,14 @@ class Music(Resource):
 					else:
 						return {'status':'ADD_SUCCESS'}
 			elif action == 'DELETE':
-				return {'status':'DUMMY'}
 				if('track_id' not in obj):
 					return {'status':'MISSING_PARAMS'}
 
 				track_id= obj['track_id']
 				try:
 					with db as cur:
-						qry="DELETE FROM music WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and track_id= (SELECT id FROM music WHERE id=%s);"
+						qry="DELETE FROM music WHERE user_id = (SELECT id FROM profiles WHERE username=%s)\
+							and id = %s;"
 						lines = cur.execute(qry,(username,track_id))
 						if lines == 0:
 							return {"status":"NO_SUCH_TRACK"}
@@ -386,6 +387,10 @@ class Music(Resource):
 
 
 			elif action == 'GET':
+				if ('playlist_id' not in obj):
+					return {'status':'MISSING_PARAMS'}
+				playlist_id = obj['playlist_id']
+
 				qry = None
 				with db as cur:
 					if playlist_id == '*':
