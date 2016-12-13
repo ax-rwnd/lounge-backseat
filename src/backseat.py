@@ -250,10 +250,24 @@ class Playlist(Resource):
 				except:
 					return {"status":"ADDITION_FAILED"}
 			elif(action=='DELETE'):
+				playlist_id=obj['title']
 				try:
 					with db as cur:
-						qry="DELETE FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and title=%s;"
-						lines = cur.execute(qry,(username,title))
+						qry="DELETE FROM music WHERE user_id=(SELECT id from profiles WHERE username=%s) and playlist_id=%s;"
+
+						lines = cur.execute(qry,(username,playlist_id))
+						if lines != 0:
+							db.commit()
+							qry="DELETE FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and id=%s;"
+							lines = cur.execute(qry,(username,playlist_id))
+							if lines == 0:
+								return {"status":"NO_SUCH_PLAYLIST"}
+
+							db.commit()
+							return {"status":"DELETION_SUCCESS"}
+
+						qry="DELETE FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and id=%s;"
+						lines = cur.execute(qry,(username,playlist_id))
 						if lines == 0:
 							return {"status":"NO_SUCH_PLAYLIST"}
 
