@@ -9,6 +9,7 @@ cfg = Config()
 
 app = Flask(__name__)
 api = Api(app)
+
 @app.before_request
 def before_request():
 	""" Open database and make cursors available to the requests. """
@@ -129,6 +130,11 @@ class Registration(Resource):
 			return {"status":"MISSING_PARAMS"}
 		elif (len(obj['username'])<4 or len(obj['username'])>25):
 			return {"status":"USER_NAME_LENGTH"}
+
+		try:
+			obj['username'].decode('ascii')
+		except UnicodeEncodeError:
+			return {'status':'INVALID_NAME'}
 
 		db = getattr(g, 'db', None)
 		with db as cur:
@@ -380,9 +386,16 @@ class Music(Resource):
 
 
 			elif action == 'GET':
-				qry = "SELECT id,title,path FROM music WHERE playlist_id = (SELECT id FROM playlists where id=%s) ORDER BY(id) ASC;"
+				qry = None
 				with db as cur:
-					cur.execute(qry, (playlist_id,))
+					if playlist_id == '*':
+						qry = "SELECT id,title,path FROM music WHERE\
+						user_id = (SELECT id FROM profiles where username=%s) ORDER BY(id) ASC;"
+						cur.execute(qry, (username,))
+					else:
+						qry = "SELECT id,title,path FROM music WHERE\
+						playlist_id = (SELECT id FROM playlists where id=%s) ORDER BY(id) ASC;"
+						cur.execute(qry, (playlist_id,))
 					return {'status':'MUSIC_LIST', 'tracks':cur.fetchall()}
 				return {'status':'INTERNAL_ERROR'}
 				#user_id = (SELECT id FROM profiles WHERE username=%s;"
