@@ -219,48 +219,6 @@ def after_request(response):
 	response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
 	return response
 
-class Test(Resource):
-	def post(self):
-		obj = request.get_json()
-		db = getattr(g,'db', None)
-
-		if ('title' not in obj) or ('session' not in obj) or ('username' not in obj) or ('action' not in obj):
-			return {"status":"MISSING_PARAMS"}
-		elif not authenticate(obj['username'],obj['session']):
-			return {"status":"AUTH_FAIL"}
-		else:
-			username = obj['username']
-			title = obj['title']
-			action=obj['action']
-			
-			if(action == 'ADD'):
-				try:
-					with db as cur:
-						qry="INSERT INTO playlists VALUES(default,\
-							%s,(select id from profiles where username=%s));"
-						cur.execute(qry,(title, username))
-						db.commit()
-						return{"status":"PLAYLIST_ADDED"}
-				except:
-					return {"status":"ADDITION_FAILED"}
-			elif(action=='DELETE'):
-				try:
-					with db as cur:
-						qry="DELETE FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and title=%s;"
-						lines = cur.execute(qry,(username,title))
-						if lines == 0:
-							return {"status":"NO_SUCH_PLAYLIST"}
-
-						db.commit()
-					return {"status":"DELETION_SUCCESS"}
-				except sql.Error as e:
-					print e
-					return {"status":"DELETION_FAILED"}
-					
-					
-			return {"status":"UNSUPPORTED_ACTION"}
-		
-
 class Playlist(Resource):
 	def post(self):
 		obj = request.get_json()
@@ -355,6 +313,7 @@ class Music(Resource):
 		""" Adds, deletes or requests music. """
 		db = getattr(g, 'db', None)
 		obj = request.get_json()
+		print "qwe",obj
 
 		if ('username' not in obj) or ('session' not in obj) or\
 			('playlist_id' not in obj) or ('action' not in obj):
@@ -383,7 +342,43 @@ class Music(Resource):
 					else:
 						return {'status':'ADD_SUCCESS'}
 			elif action == 'DELETE':
-				pass
+				return {'status':'DUMMY'}
+				if('track_id' not in obj):
+					return {'status':'MISSING_PARAMS'}
+
+				track_id= obj['track_id']
+				try:
+					with db as cur:
+						qry="DELETE FROM music WHERE user_id = (SELECT id FROM profiles WHERE username=%s) and track_id= (SELECT id FROM music WHERE id=%s);"
+						lines = cur.execute(qry,(username,track_id))
+						if lines == 0:
+							return {"status":"NO_SUCH_TRACK"}
+
+						db.commit()
+					return {"status":"DELETION_SUCCESS"}
+				except sql.Error as e:
+					print e
+					return {"status":"DELETION_FAILED"}
+			
+		#	elif (action == 'GET'):
+		#		playlists = None
+		#		try:
+		#			with db as cur:
+		#				qry = "SELECT id, title FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s);"
+		#				cur.execute(qry, (username,))
+		#				playlists = cur.fetchall()
+#
+#						if playlists == None:
+#							return {'status':'QUERY_FAILED'}
+#						elif len(playlists) == 0:
+#							return {'status':'NO_PLAYLISTS'}
+#						return {'status':'QUERY_OK', 'ids':playlists}
+#				except sql.Error as e:
+#					return {"status":"GET_FAILED"}
+								
+
+
+
 			elif action == 'GET':
 				qry = "SELECT id,title,path FROM music WHERE playlist_id = (SELECT id FROM playlists where id=%s) ORDER BY(id) ASC;"
 				with db as cur:
@@ -431,7 +426,6 @@ api.add_resource(Activation, '/api/activate/<string:key>')
 api.add_resource(Auth, '/api/auth')
 api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
-api.add_resource(Test, '/api/test')
 api.add_resource(Music, '/api/music/<string:track_id>')
 api.add_resource(Playlist, '/api/playlist')
 api.add_resource(Profile, '/api/profile/<string:username>')
