@@ -46,6 +46,22 @@ def authenticate (username, in_session):
 	print "Warning: error in auth!"
 	return False
 
+def test_friendship (target, friend):
+	db = getattr(g, 'db', None)
+
+	if target == friend:
+		return True
+	else:
+		qry = "SELECT username FROM profiles WHERE id = \
+			(SELECT friend FROM friends WHERE friend = \
+			(SELECT id FROM profiles WHERE username = %s) AND\
+			target = (SELECT id FROM profiles WHERE username = %s));"
+		with db as cur:
+			lines = cur.execute(qry, (friend, target))
+			return lines>0
+		return False
+
+
 def test_api_key (key):
 	""" Test if a given key is in the api-key list. """
 	db = getattr(g,'db', None)
@@ -418,17 +434,26 @@ class Activation(Resource):
 	pass
 
 class Lounge(Resource):
-	def get(self, username):
+	def post(self):
+		""" Retrieve information from the lounge owned by username. """
 		db = getattr(g, 'db', None)
-		result = None
-		with db as cur:
-			qry = "SELECT id FROM lounges WHERE id=(SELECT id FROM profiles WHERE username=%s);"
-			cur.execute(qry, (username,))
-			result = cur.fetchall()
-		if len(result)>0:
-			return {"status":"OK"}
+		obj = request.get_json()
+
+		if ('username' not in obj) or ('session' not in obj) or\
+			('owner' not in obj) or ('action' not in obj):
+			return {'status':'MISSING_PARAMS'}
+		elif not authenticate(obj['username'], obj['session']):
+			return {'status':'AUTH_FAIL'}
+		elif not test_friendship(obj['owner'], obj['username']):
+			return {'status':'NOT_FRIENDS'}
 		else:
-			return {"status":"FAIL"}
+			if obj['action'] == 'PLAYLIST':
+				pass
+			elif obj['action'] == 'MUSIC':
+				pass
+			else:
+				return {'status':'INVALID_ACTION'}
+
 class Chat(Resource):
 	def post(self):
 		""" Retrieve chat messages for this room. """
@@ -484,6 +509,20 @@ class Friends(Resource):
 						return {'status':'QUERY_OK', 'friends':friends}
 					else:
 						return {'status':'NO_FRIENDS'}
+			elif action == 'LOUNGES':
+				qry = "SELECT profiles.username FROM profiles WHERE id = \
+					ANY (SELECT target FROM friends WHERE friend = \
+					(SELECT id FROM profiles WHERE username = %s));"
+				with db as cur:
+					lines = cur.execute(qry, (obj['username'],))
+					if lines>0:
+						friends = []
+						for friend in cur.fetchall():
+							friends += friend
+						return {'status':'QUERY_OK', 'friends':friends}
+					else:
+						return {'status':'NO_FRIENDS'}
+
 
 			elif action == 'DELETE' and 'friend' in obj:
 				qry = "DELETE FROM friends WHERE target = (SELECT id FROM profiles WHERE username = %s)\
@@ -502,7 +541,7 @@ api.add_resource(Activation, '/api/activate/<string:key>')
 api.add_resource(Auth, '/api/auth')
 api.add_resource(Friends, '/api/friends')
 api.add_resource(Login, '/api/login')
-api.add_resource(Lounge, '/api/lounge/<string:username>')
+api.add_resource(Lounge, '/api/lounge')
 api.add_resource(Music, '/api/music/<string:track_id>')
 api.add_resource(Playlist, '/api/playlist')
 api.add_resource(Profile, '/api/profile/<string:username>')
