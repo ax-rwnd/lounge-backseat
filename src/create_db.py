@@ -15,11 +15,30 @@ def create_db ():
 	conn = get_connection()
 	create_api_keys()
 	create_profiles(conn)
+	create_friends(conn)
 	create_lounges(conn)
 	create_playlists(conn)
 	create_music(conn)
-	#create_playlistlines(conn)
 	create_chatlines(conn)
+
+def drop_table(cur, table):
+	print "Dropping",table,"...",	
+	cur.execute("DROP TABLE IF EXISTS "+table+";")
+	print "Done"
+
+def clean_db():
+	""" Remove tables from database """
+	conn = get_connection()
+
+	with conn as cur:
+		drop_table(cur, "api_keys")
+		drop_table(cur, "friends")
+		drop_table(cur, "chatlines")
+		drop_table(cur, "music")
+		drop_table(cur, "lounges")
+		drop_table(cur, "playlists")
+		drop_table(cur, "profiles")
+	conn.commit()
 
 def create_api_keys ():
 	""" Create table for registered API keys. """
@@ -28,31 +47,21 @@ def create_api_keys ():
 	""" FIELDS
 		key -- the 32-char string used to identify the service
 	"""
+	print "Setting up api keys...",
 	with conn as cur:
 		cur.execute("CREATE TABLE IF NOT EXISTS api_keys (apikey VARCHAR(32) NOT NULL, PRIMARY KEY(apikey));")
 	conn.commit()
-
-def clean_db():
-	""" Remove tables from database """
-	conn = get_connection()
-
-	with conn as cur:
-		cur.execute("DROP TABLE IF EXISTS api_keys;")
-		cur.execute("DROP TABLE IF EXISTS chatlines;")
-		cur.execute("DROP TABLE IF EXISTS playlistlines;")
-		cur.execute("DROP TABLE IF EXISTS playlists;")
-		cur.execute("DROP TABLE IF EXISTS lounges;")
-		cur.execute("DROP TABLE IF EXISTS music;")
-		cur.execute("DROP TABLE IF EXISTS profiles;")
-	conn.commit()
+	print "Done"
 
 def create_tests():
 	""" Add testdata to the db """
 	conn = get_connection()
 
+	print "Creating test data...",
 	with conn as cur:
 		cur.execute('INSERT INTO api_keys VALUES ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");')
 	conn.commit()
+	print "Done"
 		
 
 def create_profiles(conn):
@@ -67,6 +76,7 @@ def create_profiles(conn):
 		session		session token
 		steam_id	steam_id number
 	"""
+	print "Creating profiles...",
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS profiles\
 			(id INT NOT NULL AUTO_INCREMENT,\
@@ -76,7 +86,25 @@ def create_profiles(conn):
 			steam_id VARCHAR(24), session VARCHAR(60),\
 			PRIMARY KEY(id));"
 		cur.execute(qry)
+	print "Done"
 
+	conn.commit()
+
+def create_friends(conn):
+	""" Create friends table """
+	""" FIELDS
+		target		the user who consider friend its friend
+		friend		the friend in question
+	"""
+	print "Creating friends...",
+	with conn as cur:
+		qry = "CREATE TABLE IF NOT EXISTS friends\
+			(target INT NOT NULL, friend INT NOT NULL,\
+			PRIMARY KEY(target, friend),\
+			FOREIGN KEY(target) REFERENCES profiles(id),\
+			FOREIGN KEY(friend) REFERENCES profiles(id));"
+		cur.execute(qry)
+	print "Done"
 	conn.commit()
 
 def create_music(conn):
@@ -89,12 +117,14 @@ def create_music(conn):
 		path		filesystem path
 		playlist_id	id of the playlist
 	"""
+	print "Creating music...",
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS music (id int NOT NULL AUTO_INCREMENT,\
 			user_id INT NOT NULL, title VARCHAR(255), path varchar(1024),\
 			playlist_id INT NOT NULL, PRIMARY KEY(id), FOREIGN KEY (user_id)\
 			REFERENCES profiles(id), FOREIGN KEY(playlist_id) REFERENCES playlists(id));"
 		cur.execute(qry)
+	print "Done"
 	conn.commit()
 
 def create_lounges(conn):
@@ -103,15 +133,25 @@ def create_lounges(conn):
 		1 lounge -> many chat messages """
 
 	""" FIELDS
-		id	lounge id, same as user?
+		id		lounge id
+		owner_id	profile that owns lounge
+		playlist_id	current playlist
+		song_id		current song
 		
 	"""
+	print "Creating lounges...",
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS lounges\
-			(id INT NOT NULL, PRIMARY KEY(id));"
+			(id INT NOT NULL AUTO_INCREMENT, PRIMARY KEY(id));"#,\
+			#owner_id INT NOT NULL,\
+			#playlist_id INT NOT NULL,\
+			#song_id INT NOT NULL, PRIMARY KEY(id),\
+			#FOREIGN KEY(owner_id) REFERENCES profiles(id),\
+			#FOREIGN KEY(playlist_id) REFERENCES playlists(id),\
+			#FOREIGN KEY(song_id) REFERENCES music(id));"
 		cur.execute(qry);
-	
 	conn.commit()
+	print "Done"
 
 def create_playlists(conn):
 	""" Create lounge->music mapping """
@@ -121,14 +161,15 @@ def create_playlists(conn):
 		title	name of playlist
 		user_id owner user id
 	"""
+	print "Creating playlists...",
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS playlists\
 			(id INT NOT NULL AUTO_INCREMENT, title VARCHAR(255),\
 			user_id INT NOT NULL, PRIMARY KEY(id),\
 			FOREIGN KEY(user_id) REFERENCES profiles(id));"
 		cur.execute(qry)
-
 	conn.commit()
+	print "Done"
 
 def create_playlistlines (conn):
 	""" Creates linked-list structure for each playlist """
@@ -139,6 +180,7 @@ def create_playlistlines (conn):
 		playlist_id	belonging to playlist
 		music_id	target track
 	"""
+	print "Creating playlistlines...",
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS playlistlines\
 			(id INT NOT NULL AUTO_INCREMENT, next_id INT NULL,\
@@ -147,8 +189,8 @@ def create_playlistlines (conn):
 			FOREIGN KEY(next_id) REFERENCES playlistlines(id),\
 			FOREIGN KEY(music_id) REFERENCES music(id));"
 		cur.execute(qry)
-
 	conn.commit()
+	print "Done"
 
 def create_chatlines(conn):
 	""" Chats for every lounge. """
@@ -159,6 +201,7 @@ def create_chatlines(conn):
 		message		the message
 		timestamp	the time when the message was posted
 	"""
+	print "Creating chatlines...",
 	with conn as cur:
 		qry = "CREATE TABLE IF NOT EXISTS chatlines\
 			(user_id INT NOT NULL,\
@@ -170,6 +213,7 @@ def create_chatlines(conn):
 			FOREIGN KEY(lounge_id) REFERENCES lounges(id));"
 		cur.execute(qry)
 	conn.commit()
+	print "Done"
 
 if __name__ == "__main__":
 	if len(sys.argv)!=2:
