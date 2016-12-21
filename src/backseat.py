@@ -35,14 +35,16 @@ def authenticate (username, in_session):
 
 		lines = cur.execute(qry, (username,))
 		if lines == 0:
-			return {"status":"AUTH_FAIL"}
+			return False
 
 		session = cur.fetchone()[0]
 		if session == in_session:
-			return {"status":"AUTH_OK"}
+			return True
 		else:
-			return {"status":"AUTH_FAIL"}
-	return {"status":"AUTH_ERROR"}
+			return False
+
+	print "Warning: error in auth!"
+	return False
 
 def test_api_key (key):
 	""" Test if a given key is in the api-key list. """
@@ -91,7 +93,7 @@ class Profile(Resource):
 		
 		
 		# make sure the user is properly authenticated
-		if authenticate(username, obj['session'])['status'] == 'AUTH_FAIL':
+		if not authenticate(username, obj['session']):
 			return {'status':'AUTH_FAIL'}
 		else:
 			#update password
@@ -217,7 +219,12 @@ class Auth(Resource):
 		if ('username' not in obj) or ('session' not in obj):
 			return {"status":"MISSING_PARAMS"}
 		
-		return authenticate(obj['username'], obj['session'])
+		status = authenticate(obj['username'], obj['session'])
+		if status:
+			return {'status':'AUTH_OK'}
+		else:
+			return {'status':'AUTH_FAIL'}
+			
 @app.after_request
 def after_request(response):
 	response.headers.add('Access-Control-Allow-Origin', '*')
@@ -381,25 +388,6 @@ class Music(Resource):
 					print e
 					return {"status":"DELETION_FAILED"}
 			
-		#	elif (action == 'GET'):
-		#		playlists = None
-		#		try:
-		#			with db as cur:
-		#				qry = "SELECT id, title FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s);"
-		#				cur.execute(qry, (username,))
-		#				playlists = cur.fetchall()
-#
-#						if playlists == None:
-#							return {'status':'QUERY_FAILED'}
-#						elif len(playlists) == 0:
-#							return {'status':'NO_PLAYLISTS'}
-#						return {'status':'QUERY_OK', 'ids':playlists}
-#				except sql.Error as e:
-#					return {"status":"GET_FAILED"}
-								
-
-
-
 			elif action == 'GET':
 				if ('playlist_id' not in obj):
 					return {'status':'MISSING_PARAMS'}
@@ -453,9 +441,66 @@ class Chat(Resource):
 				INNER JOIN profiles ON chatlines.lounge_id = %s AND profile.id = chatlines.user_id;"
 				cur.execute(qry, (obj['lounge_id'],))
 
+class Friends(Resource):
+	def post(self):
+		""" Add, retrieve or remove friend from list. """
+		db = getattr(g, 'db', None)
+		obj = request.get_json()
+
+		if ('username' not in obj) or ('session' not in obj):
+			return {'status':'MISSING_PARAMS'}
+		elif not authenticate(obj['username'],obj['session']):
+			return {'status':'AUTH_FAIL'}
+		elif ('action' not in obj):
+			return {'status':'MISSING_PARAMS'}
+		else:
+			action = obj['action']
+			if action == 'ADD' and 'friend' in obj:
+				qry = "INSERT INTO friends VALUES ((SELECT id FROM profiles WHERE username = %s),\
+					(SELECT id FROM profiles WHERE username = %s));"
+				with db as cur:
+					try:
+						lines = cur.execute(qry, (obj['username'],obj['friend']))
+
+						if lines > 0:
+							return {'status':'FRIEND_ADDED'}
+						else:
+							return {'status':'QUERY_FAILED'}
+					except sql.IntegrityError:
+						return {'status':'DUPLICATE_USER'}
+					except sql.OperationalError:
+						return {'status':'NO_SUCH_USER'}
+
+			elif action == 'GET':
+				qry = "SELECT profiles.username FROM profiles WHERE id = \
+					ANY (SELECT friend FROM friends WHERE target = \
+					(SELECT id FROM profiles WHERE username = %s));"
+				with db as cur:
+					lines = cur.execute(qry, (obj['username'],))
+					if lines>0:
+						friends = []
+						for friend in cur.fetchall():
+							friends += friend
+						return {'status':'QUERY_OK', 'friends':friends}
+					else:
+						return {'status':'NO_FRIENDS'}
+
+			elif action == 'DELETE' and 'friend' in obj:
+				qry = "DELETE FROM friends WHERE target = (SELECT id FROM profiles WHERE username = %s)\
+					and friend = (SELECT id FROM profiles WHERE username = %s);"
+				with db as cur:
+					lines = cur.execute(qry, (obj['username'], obj['friend']))
+					if lines>0:
+						return {'status':'FRIEND_DELETED'}
+					else:
+						return {'status':'QUERY_FAILED'}
+
+			else:
+				return {'status':'INVALID_ACTION'}
 
 api.add_resource(Activation, '/api/activate/<string:key>')
 api.add_resource(Auth, '/api/auth')
+api.add_resource(Friends, '/api/friends')
 api.add_resource(Login, '/api/login')
 api.add_resource(Lounge, '/api/lounge/<string:username>')
 api.add_resource(Music, '/api/music/<string:track_id>')
