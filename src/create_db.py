@@ -16,10 +16,10 @@ def create_db ():
 	create_api_keys()
 	create_profiles(conn)
 	create_friends(conn)
-	create_lounges(conn)
+	#create_lounges(conn)
 	create_playlists(conn)
 	create_music(conn)
-	create_chatlines(conn)
+	#create_chatlines(conn)
 
 def drop_table(cur, table):
 	print "Dropping",table,"...",	
@@ -33,9 +33,9 @@ def clean_db():
 	with conn as cur:
 		drop_table(cur, "api_keys")
 		drop_table(cur, "friends")
-		drop_table(cur, "chatlines")
+		#drop_table(cur, "chatlines")
 		drop_table(cur, "music")
-		drop_table(cur, "lounges")
+		#drop_table(cur, "lounges")
 		drop_table(cur, "playlists")
 		drop_table(cur, "profiles")
 	conn.commit()
@@ -75,6 +75,8 @@ def create_profiles(conn):
 		secret		bcrypt hash
 		session		session token
 		steam_id	steam_id number
+		playlist	current lounge playlist
+		track		current lounge track
 	"""
 	print "Creating profiles...",
 	with conn as cur:
@@ -84,6 +86,7 @@ def create_profiles(conn):
 			email VARCHAR(255) UNIQUE NOT NULL,\
 			active BOOLEAN, secret VARCHAR(60) NOT NULL,\
 			steam_id VARCHAR(24), session VARCHAR(60),\
+			playlist INT, track INT,\
 			PRIMARY KEY(id));"
 		cur.execute(qry)
 	print "Done"

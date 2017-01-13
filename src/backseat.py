@@ -156,7 +156,7 @@ class Registration(Resource):
 
 		db = getattr(g, 'db', None)
 		with db as cur:
-			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s, '', '');"
+			qry = "INSERT INTO profiles VALUES (default, %s, %s, FALSE, %s, '', '', NULL, NULL);"
 			try:
 
 				secret = obj['secret']
@@ -167,7 +167,8 @@ class Registration(Resource):
 				cur.execute(qry, (obj['username'],obj['email'], hashed))
 				db.commit()
 				return {"status":"USER_CREATED"}
-			except:
+			except Exception as e:
+				print "Error", e
 				return {"status":"USER_EXISTS"}
 	
 
@@ -253,16 +254,20 @@ class Playlist(Resource):
 		obj = request.get_json()
 		db = getattr(g,'db', None)
 
-		if ('title' not in obj) or ('session' not in obj) or ('username' not in obj) or ('action' not in obj):
+		if  ('session' not in obj) or ('username' not in obj) or ('action' not in obj):
 			return {"status":"MISSING_PARAMS"}
 		elif not authenticate(obj['username'],obj['session']):
 			return {"status":"AUTH_FAIL"}
 		else:
 			username = obj['username']
-			title = obj['title']
 			action=obj['action']
+			owner = obj['username'] if 'owner' not in obj else obj['owner']
 			
 			if(action == 'ADD'):
+				if not 'title' in obj:
+					return {"status":"MISSING_PARAMS"}
+				title = obj['title']
+
 				try:
 					with db as cur:
 						qry="INSERT INTO playlists VALUES(default,\
@@ -273,6 +278,8 @@ class Playlist(Resource):
 				except:
 					return {"status":"ADDITION_FAILED"}
 			elif(action=='DELETE'):
+				if not 'title' in obj:
+					return {"status":"MISSING_PARAMS"}
 				playlist_id=obj['title']
 				try:
 					with db as cur:
@@ -301,11 +308,14 @@ class Playlist(Resource):
 					return {"status":"DELETION_FAILED"}
 			
 			elif (action == 'GET'):
+				if not test_friendship(username, owner):
+					return {'status':'NOT_FRIENDS'}
+
 				playlists = None
 				try:
 					with db as cur:
 						qry = "SELECT id, title FROM playlists WHERE user_id = (SELECT id FROM profiles WHERE username=%s);"
-						cur.execute(qry, (username,))
+						cur.execute(qry, (owner,))
 						playlists = cur.fetchall()
 
 						if playlists == None:
@@ -356,7 +366,7 @@ class Music(Resource):
 		""" Adds, deletes or requests music. """
 		db = getattr(g, 'db', None)
 		obj = request.get_json()
-		print "qwe",obj
+		print "input",obj
 
 		if ('username' not in obj) or ('session' not in obj) or\
 			('action' not in obj):
@@ -367,8 +377,6 @@ class Music(Resource):
 			username = obj['username']
 			session = obj['session']
 			action = obj['action']
-
-			print "action",action
 
 			if action == 'ADD':
 				if ('title' not in obj) or ('playlist_id' not in obj) or ('path' not in obj):
@@ -439,6 +447,8 @@ class Lounge(Resource):
 		db = getattr(g, 'db', None)
 		obj = request.get_json()
 
+		print "Got args: "+obj
+
 		if ('username' not in obj) or ('session' not in obj) or\
 			('owner' not in obj) or ('action' not in obj):
 			return {'status':'MISSING_PARAMS'}
@@ -447,12 +457,41 @@ class Lounge(Resource):
 		elif not test_friendship(obj['owner'], obj['username']):
 			return {'status':'NOT_FRIENDS'}
 		else:
-			if obj['action'] == 'PLAYLIST':
+			uid = None
+			qry = "SELECT id FROM profiles WHERE username = %s;"
+			with db as cur:
+				cur.execute(qry, (obj['owner'],))
+				uid = cur.fetchone()[0]
+
+			if (obj['action'] == 'SETPLAYLIST') and ('playlist' in obj):
+				qry = "UPDATE profiles SET playlist = %s WHERE id = %s;"
+				with db as cur:
+					lines = cur.execute(qry, (obj['playlist'], uid))
+					if lines > 0:
+						return {'status':'PLAYLIST_SET'}
+					else:
+						return {'status':'PLAYLIST_ERROR'}
+
+			elif obj['action'] == 'SETMUSIC':
 				pass
-			elif obj['action'] == 'MUSIC':
+			elif obj['action'] == 'GETPLAYLIST':
+				qry = "SELECT profiles.playlist, playlists.title FROM\
+					profiles LEFT JOIN playlists ON profiles.playlist =\
+					playlists.id AND profiles.username = %s;"
+				with db as cur:
+					lines = cur.execute(qry, (obj['owner'],))
+					if lines>0:
+						return {'status':'PLAYLIST_FOUND', 'playlist':cur.fetchone()[0]}
+					else:
+						return {'status':'NO_SUCH_PLAYLIST'}
+
+				
+			elif obj['action'] == 'GETMUSIC':
 				pass
 			else:
 				return {'status':'INVALID_ACTION'}
+
+		return {'status':'INTERNAL_ERROR'}
 
 class Chat(Resource):
 	def post(self):
