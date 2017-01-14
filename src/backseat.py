@@ -184,7 +184,7 @@ class Login(Resource):
 			db = getattr(g,'db', None)
 			
 			if not test_api_key(obj['api_key']):
-				return {"status":"INVALID_API_KEY"+obj['api_key']}
+				return {"status":"INVALID_API_KEY"}
 
 			steam_id = obj['steam_id']
 			if isinstance(steam_id, unicode):
