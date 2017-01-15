@@ -218,10 +218,24 @@ def create_chatlines(conn):
 	conn.commit()
 	print "Done"
 
+def add_api_key(key):
+	""" Adds a key to the api_key list. """
+	conn = get_connection()
+
+	print 'Adding key "'+key+'" to the list.'
+	with conn as cur:
+		cur.execute('INSERT INTO api_keys VALUES (%s);', (key,))
+	conn.commit()
+	print "Done"
+		
+
+
 if __name__ == "__main__":
-	if len(sys.argv)!=2:
-		print "Usage: create_db.py [create] [clean] [tests]"
-	else:
+	if len(sys.argv) == 1 or len(sys.argv)>3:
+		print "Usage: create_db.py [create] [clean] [addkey key_to_add]"
+	elif sys.argv[1] == 'addkey' and len(sys.argv)==3:
+		add_api_key(sys.argv[2])
+	elif len(sys.argv) == 2:
 		if sys.argv[1] == 'create':
 			create_db()
 		elif sys.argv[1] == 'clean':
@@ -233,3 +247,5 @@ if __name__ == "__main__":
 			create_tests()
 		else:
 			print "Unknown command!"
+	else:
+		print "Unknown command!"
