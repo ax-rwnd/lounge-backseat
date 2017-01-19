@@ -266,7 +266,10 @@ class Playlist(Resource):
 			if(action == 'ADD'):
 				if not 'title' in obj:
 					return {"status":"MISSING_PARAMS"}
+
 				title = obj['title']
+				if len(title.strip())<=0:
+					return {"status":"ADDITION_FAILED"}
 
 				try:
 					with db as cur:
