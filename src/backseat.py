@@ -498,18 +498,6 @@ class Lounge(Resource):
 
 		return {'status':'INTERNAL_ERROR'}
 
-class Chat(Resource):
-	def post(self):
-		""" Retrieve chat messages for this room. """
-		db = getattr(g, 'db', None)
-		obj = request.get_json()
-
-		if 'lounge_id' in obj and isinstance(obj['lounge_id'], str):
-			with db as cur:
-				qry = "SELECT chatlines.time, profile.username, chatlines.message FROM chatlines\
-				INNER JOIN profiles ON chatlines.lounge_id = %s AND profile.id = chatlines.user_id;"
-				cur.execute(qry, (obj['lounge_id'],))
-
 class Friends(Resource):
 	def post(self):
 		""" Add, retrieve or remove friend from list. """
@@ -595,19 +583,3 @@ api.add_resource(Registration, '/api/register')
 
 if __name__ == '__main__':
 	app.run(host=cfg.host, port=cfg.port, debug=True)
-
-"""elif action == 'LOUNGES':
-	qry = "SELECT profiles.username FROM profiles WHERE id = \
-		ANY (SELECT target FROM friends WHERE friend = \
-		(SELECT id FROM profiles WHERE username = %s));"
-	with db as cur:
-		lines = cur.execute(qry, (obj['username'],))
-		print "LOUNGES:"+str(lines)
-		if lines>0:
-			friends = []
-			for friend in cur.fetchall():
-				friends += friend
-			return {'status':'QUERY_OK', 'friends':friends}
-		else:
-			return {'status':'NO_FRIENDS'}"""
-
